@@ -10,11 +10,12 @@ const { registerUser, getUsers } = require('./controllers/userController');
 const { handleIncomingWhatsApp } = require('./controllers/twilioController');
 const twilio = require('twilio');
 const diacritics = require('diacritics');
-const payoneerRouter = require('./controllers/payoneer/walletVinculate'); 
+const payoneerRouter = require('./controllers/payoneer/walletVinculate');
+const {findById} = require("./models/users");
 // const mercadopagoRouter = require('./controllers/mercado-pago/mercadoPagoVinculate'); // Importa el router con las rutas de Mercado Pago
+const mercadopagoRouter = express.Router();
 
 
-// Cargar variables de entorno
 require('dotenv').config();
 
 const app = express();
@@ -36,6 +37,9 @@ app.use('/api/verify', whatsappVerify);
 app.use('/api/validateCode', checkCode);
 app.post('/api/twilio/receive-whatsapp', handleIncomingWhatsApp);
 // app.use('/api', mercadopagoRouter); // Usa las rutas de Mercado Pago que definiste
+
+
+
 
 app.post('/api/send-email', async (req, res) => {
   const emailData = req.body;
@@ -193,3 +197,87 @@ const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
+
+
+
+
+app.get('/api/mercadopago/callback', async (req, res) => {
+  const { code } = req.query;
+  const userId = req.user?.id; // Asegúrate de tener autenticación configurada
+
+  console.log(userId)
+
+  if (!code) {
+    return res.status(400).json({ error: 'Authorization code not provided' });
+  }
+
+  try {
+    const response = await axios.post(
+        'https://api.mercadopago.com/oauth/token',
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: process.env.MP_CLIENT_ID, // Agrega estas variables en tu archivo .env
+          client_secret: process.env.MP_CLIENT_SECRET,
+          redirect_uri: process.env.MP_REDIRECT_URI,
+          code,
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+    );
+
+    const { access_token, refresh_token, user_id, expires_in } = response.data;
+
+
+    /*
+
+    Eze, aca tenes todas las variables que habiamos visto en el postman, no se como tenes armada la logica de id de usuarios, pero en el front hay que hacer
+    que el callback url tenga una variable para poder identificarlo en el back cuando haces el guardado en la base de datos..
+
+    Intente guardarlo pero no logre, si lo vemos en una llamada lo podemos solucionar.
+
+    El user_id y el access_token es el q se tiene que llamar para obtener los datos, siempre hay que consultar a este curl:
+
+    curl --location 'https://api.mercadopago.com/oauth/token' \
+--header 'accept: application/json' \
+--header 'content-type: application/x-www-form-urlencoded' \
+--header 'Cookie: JSESSIONID=node01tahzeetfxft51v7kuo1sfn9zm5.node0' \
+--data-urlencode 'client_secret=TEST-6412415382079695-112313-251776c2abe3a819394bc43183d3b69d-2114044574' \
+--data-urlencode 'refresh_token=TG-674213cb7a1dca0001644403-2114044574' \
+--data-urlencode 'grant_type=refresh_token'
+
+  antes de usar un acces_token..
+
+
+
+
+     */
+
+
+
+    /*
+    const user = await findById(userId);
+    if (user && user.wallet && user.wallet.mercadoPago) {
+      return res.status(400).json({ message: 'You already have a linked wallet.' });
+    }
+
+    await User.findByIdAndUpdate(userId, {
+      $set: {
+        'wallet.mercadoPago': {
+          accessToken: access_token,
+          refreshToken: refresh_token,
+          userId: user_id,
+          expiresIn: expires_in,
+          linkedAt: new Date(),
+        },
+      },
+    });
+*/
+  } catch (error) {
+    console.error('Error exchanging code for token:', error.response?.data || error.message);
+  }
+});
+
+app.use('/api/mercadopago', mercadopagoRouter);
