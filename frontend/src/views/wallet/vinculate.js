@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -8,21 +8,15 @@ import {
   Button,
   Box,
   Chip,
-  TextField,
-  Modal,
-  Fade,
-  Backdrop,
-  Stack,
 } from "@mui/material";
-import WarningIcon from "@mui/icons-material/Warning"; // Importa el ícono de advertencia
 
 // Importa los logos directamente
 import paypalLogo from "../../assets/images/pay/paypal.png";
 import mercadoPagoLogo from "../../assets/images/pay/mp.png";
 import payoneerLogo from "../../assets/images/pay/payoneer.png";
-import skillLogo from "../../assets/images/pay/skrill.png"; // Logo de Skill
-import payuLogo from "../../assets/images/pay/payu.png"; // Logo de PayU
-import epaycoLogo from "../../assets/images/pay/epayco.png"; // Logo de ePayco
+import skillLogo from "../../assets/images/pay/skrill.png";
+import payuLogo from "../../assets/images/pay/payu.png";
+import epaycoLogo from "../../assets/images/pay/epayco.png";
 
 // Lista de métodos de pago
 const paymentMethods = [
@@ -71,116 +65,139 @@ const paymentMethods = [
 ];
 
 const PaymentCards = () => {
-  const [credentials, setCredentials] = useState({
-    username: "",
-    password: "",
-  });
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setCredentials({ ...credentials, [name]: value });
-  };
+  const [walletStatus, setWalletStatus] = useState(null); // Estado inicial de la wallet
+  const [loading, setLoading] = useState(true); // Estado de carga
+
+  useEffect(() => {
+    const checkWalletStatus = async () => {
+      const token = localStorage.getItem("token"); // Obtener el token desde el localStorage
+
+      try {
+        const response = await fetch(
+            "http://localhost:5001/api/mercadopago/wallet-status",
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+        );
+
+        if (!response.ok) {
+          throw new Error("Error al verificar la wallet");
+        }
+
+        const data = await response.json();
+
+        setWalletStatus(data); // Guardar el estado de la wallet
+      } catch (error) {
+        console.error("Error al obtener el estado de la wallet:", error.message);
+      } finally {
+        setLoading(false); // Deshabilitar el estado de carga
+      }
+    };
+
+    checkWalletStatus();
+  }, []);
 
   const handleConnect = async (url) => {
     if (url.includes("mercadopago")) {
       const clientId = "6412415382079695";
       const redirectUri = "https://gestion-smart.com/api/mercadopago/callback";
+      const token = localStorage.getItem("token");
 
-      const authorizationUrl = `https://auth.mercadopago.com/authorization?client_id=${clientId}&response_type=code&platform_id=mp&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      const authorizationUrl = `https://auth.mercadopago.com/authorization?client_id=${clientId}&response_type=code&platform_id=mp&redirect_uri=${encodeURIComponent(
+          redirectUri
+      )}&state=${encodeURIComponent(token)}`;
 
       // Redirigir al usuario
       window.open(authorizationUrl, "_blank");
     }
   };
 
-  const generateRandomString = (length) => {
-    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
-    let result = "";
-    for (let i = 0; i < length; i++) {
-      result += characters.charAt(Math.floor(Math.random() * characters.length));
-    }
-    return result;
-  };
-  const generateCodeChallenge = async (codeVerifier) => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(codeVerifier);
-    const digest = await crypto.subtle.digest("SHA-256", data);
-    return btoa(String.fromCharCode(...new Uint8Array(digest)))
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=+$/, "");
-  };
-
+  if (loading) {
+    return <Typography variant="h6">Cargando...</Typography>;
+  }
 
   return (
-    <Box sx={{ padding: "20px" }}>
-      <Grid container spacing={3} justifyContent="center">
-        {paymentMethods.map((method, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
-            <Card
-              sx={{
-                maxWidth: 345,
-                textAlign: "center",
-                boxShadow: 3,
-                borderRadius: 2,
-                transition: "transform 0.3s ease",
-                opacity: method.available ? 1 : 0.6,
-                pointerEvents: method.available ? "auto" : "none",
-                position: "relative",
-                "&:hover": method.available ? { transform: "scale(1.05)" } : {},
-              }}
-            >
-              {!method.available && (
-                <Chip
-                  label="Próximamente"
-                  sx={{
-                    position: "absolute",
-                    top: "10px",
-                    right: "10px",
-                    backgroundColor: "#97C703",
-                    color: "#fff",
-                    fontWeight: "bold",
-                  }}
-                />
-              )}
-              <CardMedia
-                component="img"
-                height="140"
-                image={method.logo}
-                alt={method.name}
-                sx={{
-                  objectFit: "contain",
-                  marginTop: "10px",
-                  ...(method.name === "ePayco" && { width: "60%", margin: "auto" }),
-                }}
-              />
-              <CardContent>
-                <Typography variant="h6" component="div" sx={{ fontWeight: "bold" }}>
-                  {method.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {method.description}
-                </Typography>
-
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => handleConnect(method.connectUrl)}
-                  disabled={!method.available}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: "bold",
-                    padding: "8px 16px",
-                  }}
+      <Box sx={{ padding: "20px" }}>
+        <Grid container spacing={3} justifyContent="center">
+          {paymentMethods.map((method, index) => (
+              <Grid item xs={12} sm={6} md={4} key={index}>
+                <Card
+                    sx={{
+                      maxWidth: 345,
+                      textAlign: "center",
+                      boxShadow: 3,
+                      borderRadius: 2,
+                      transition: "transform 0.3s ease",
+                      opacity: method.available ? 1 : 0.6,
+                      pointerEvents: method.available ? "auto" : "none",
+                      position: "relative",
+                      "&:hover": method.available ? { transform: "scale(1.05)" } : {},
+                    }}
                 >
-                  Vincular cuenta
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                  {!method.available && (
+                      <Chip
+                          label="Próximamente"
+                          sx={{
+                            position: "absolute",
+                            top: "10px",
+                            right: "10px",
+                            backgroundColor: "#97C703",
+                            color: "#fff",
+                            fontWeight: "bold",
+                          }}
+                      />
+                  )}
+                  <CardMedia
+                      component="img"
+                      height="140"
+                      image={method.logo}
+                      alt={method.name}
+                      sx={{
+                        objectFit: "contain",
+                        marginTop: "10px",
+                        ...(method.name === "ePayco" && { width: "60%", margin: "auto" }),
+                      }}
+                  />
+                  <CardContent>
+                    <Typography variant="h6" component="div" sx={{ fontWeight: "bold" }}>
+                      {method.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {method.description}
+                    </Typography>
 
-    </Box>
+                    {walletStatus?.walletLinked && method.name === "Mercado Pago" ? (
+                        <Typography
+                            variant="body1"
+                            color="primary"
+                            sx={{ fontWeight: "bold", mt: 2 }}
+                        >
+                          Vinculado <br /> ID: {walletStatus.mercadoPagoId}
+                        </Typography>
+                    ) : (
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={() => handleConnect(method.connectUrl)}
+                            disabled={!method.available}
+                            sx={{
+                              textTransform: "none",
+                              fontWeight: "bold",
+                              padding: "8px 16px",
+                            }}
+                        >
+                          Vincular cuenta
+                        </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+          ))}
+        </Grid>
+      </Box>
   );
 };
 

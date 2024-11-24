@@ -8,9 +8,17 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: true },
     country: { type: String },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
-    whatsapp: { type: String, required: false } // Nuevo campo para el número de WhatsApp
+    whatsapp: { type: String, required: false }, // Campo para el número de WhatsApp
+    wallet: {
+        mercadoPago: {
+            accessToken: { type: String },
+            refreshToken: { type: String },
+            userId: { type: String },
+            expiresIn: { type: Number },
+            linkedAt: { type: Date },
+        },
+    },
 });
-
 
 // Middleware para cifrar la contraseña antes de guardar el usuario
 userSchema.pre('save', async function (next) {
