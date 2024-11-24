@@ -102,6 +102,7 @@ const PaymentCards = () => {
 
   const handleConnect = async (url) => {
     if (url.includes("mercadopago")) {
+
       const clientId = "6412415382079695";
       const redirectUri = "https://gestion-smart.com/api/mercadopago/callback";
       const token = localStorage.getItem("token");
@@ -110,8 +111,8 @@ const PaymentCards = () => {
           redirectUri
       )}&state=${encodeURIComponent(token)}`;
 
-      // Redirigir al usuario
       window.open(authorizationUrl, "_blank");
+
     }
   };
 

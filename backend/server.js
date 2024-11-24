@@ -208,11 +208,14 @@ app.listen(PORT, () => {
 
 app.get('/api/mercadopago/callback', authenticateJWT, async (req, res) => {
   const { code } = req.query;
-  const userId = req.user?.userId;
 
   if (!code) {
     return res.status(400).json({ error: 'Authorization code not provided' });
   }
+
+  const userId = req.user?.userId;
+
+
   try {
     const response = await axios.post(
         'https://api.mercadopago.com/oauth/token',
@@ -257,11 +260,14 @@ app.get('/api/mercadopago/callback', authenticateJWT, async (req, res) => {
         { new: true, upsert: true }
     );
 
+   // res.status(200).json({ message: 'Wallet linked successfully' });
+    res.redirect('http://localhost:3000/apps/wallet/vinculate?success=true');
 
-    res.status(200).json({ message: 'Wallet linked successfully' });
   } catch (error) {
+
     console.error('Error exchanging code for token:', error.response?.data || error.message);
     res.status(500).json({ error: 'Error linking wallet' });
+
   }
 });
 app.get('/api/mercadopago/wallet-status', authenticateJWT, async (req, res) => {
@@ -275,6 +281,7 @@ app.get('/api/mercadopago/wallet-status', authenticateJWT, async (req, res) => {
 
     const walletLinked = !!user.wallet?.mercadoPago?.accessToken;
     const mercadoPagoId = walletLinked ? user.wallet.mercadoPago.userId : null;
+
     res.status(200).json({ walletLinked, mercadoPagoId });
   } catch (error) {
     console.error(error);
